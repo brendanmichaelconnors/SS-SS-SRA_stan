@@ -1,0 +1,104 @@
+#==================================================================================================
+# Project Name: YUKON RIVER CHINOOK IMEG WORKING GROUP - STAN version of age-structured state-space spawner-recruitment model with AR-1 process variation (Fleischman et al. CJFAS. 2013)
+# Creator: Brendan Connors, Fisheries and Oceans Canada and Curry Cunningham, College of Fisheries and Ocean Sciences, UAF
+# Date: 14.10.2020
+#
+# Purpose: Fit state-space spawner recruitment model to CDN-origin Yukon Chinook spawner, harvest and age composition data
+#
+#==================================================================================================
+# NOTES:
+#  1) starting simple with fixed maturity schedule and escapement and harvest from JTC report
+#==================================================================================================
+
+require(rstan)
+# require(rstantools) # SA: I don't think you need this... it's for package development
+
+# SA: added:
+options(mc.cores = parallel::detectCores())
+rstan_options(auto_write = TRUE)
+
+Esc <- read.csv('data/EscTab.csv') # escapement
+Har <- read.csv('data/HarTab.csv') # harvest
+S_cv <- rep(0.2,length(Esc$year)) # placeholder for CV on escapement observations
+H_cv <- rep(0.05,length(Har$year)) # placeholder for CV on harvest observations
+p_mat <- c(0.05,0.31,0.54,0.1) # placeholder fixed age at maturity
+a_min <- 4
+a_max <- 7
+nyrs <- length(Esc$year)
+A <- a_max - a_min + 1
+nRyrs <- nyrs + A - 1
+
+# Run Stan Model ====================================================
+
+# STAN MODEL DATA
+  stan.data <- list("nyrs" = nyrs,
+                    "a_min" = a_min,
+                    "a_max" = a_max,
+                    "A" = A,
+                    "nRyrs" = nyrs + A - 1,
+                    "p" = p_mat,
+                    "S_obs" = Esc$Esc,
+                    "H_obs" = Har$Harvest,
+                    "S_cv" = S_cv,
+                    "H_cv" = H_cv)
+
+
+# FIT STAN MODEL
+  stan.fitttt <- stan(file = "SSSR_AR1.v1.stan",
+                   model_name = "SSSR_AR1.v1",
+                   data = stan.data,
+                   chains = 4,
+                   iter = 1000,
+                   thin = 2)
+
+# SA: You generally don't need any thinning with Stan... thinning is only really needed when you run into memory/storage issues, and I doubt that is going to happen here. Otherwise you are just throwing away some information.
+
+# SA: note that I get some divergent transitions and lots of treedepth warnings.
+# SA: the divergent transition warnings are serious and mean that you cannot trust the posterior since it detects that it is not traversing the full posterior
+# SA: I also get a lot of "The following variables have undefined values:  lnresid[1],The following variables have undefined values:  lnresid[2],T"
+
+# SA: You can see the divergent transitions here (red):
+pairs(stan.fitttt, pars = c("lnalpha", "beta", "sigma_R", "sigma_R0", "phi"))
+
+stan.data <- list(
+  "nyrs" = nyrs,
+  "a_min" = a_min,
+  "a_max" = a_max,
+  "A" = A,
+  "nRyrs" = nyrs + A - 1,
+  "p" = p_mat,
+  "S_obs" = Esc$Esc / 1000, # SA
+  "H_obs" = Har$Harvest / 1000, # SA
+  "S_cv" = S_cv,
+  "H_cv" = H_cv)
+
+# SA, new:
+fit2 <- stan(
+  "SSSR_AR1.v1.stan",
+  data = stan.data,
+  chains = 4,
+  iter = 1000,
+  seed = 42,
+  control = list(adapt_delta = 0.99, max_treedepth = 20)
+)
+
+# SA: There are a ton of parameters in transformed parameters which makes the output huge... you could do that in the model section instead if you don't need them or specify via pars = ... in terms of what you actually want
+pairs(fit2, pars = c("lnalpha", "beta", "sigma_R", "sigma_R0", "phi", "mean_ln_R0"))
+traceplot(fit2, pars = c("lnalpha", "beta", "sigma_R", "sigma_R0", "phi", "mean_ln_R0"))
+
+# SA: Ah, that's (mostly) better!
+
+pairs(fit2, pars = c("sigma_R", "sigma_R0", "lnR[1]", "lnR[2]"))
+
+# SA: you need the non-centered parameterization on sigma_R0
+# SA: this will solve the divergences and greatly speed up sampling;
+# see the funnel in the pairs plots (e.g., sigma_R0 vs. lnR[1] or lnR[2]) -- it's not getting to the lowest sigma_R0 posterior
+# See https://mc-stan.org/docs/2_18/stan-users-guide/reparameterization-section.html
+# then you likely won't need list(adapt_delta = 0.99, max_treedepth = 20) or at least a value below 0.99 and above 0.8 (default)
+
+# SUMMARIZE AND DIAGNOSE STAN MODEL
+shinystan::launch_shinystan(stan.fit)
+
+
+
+
