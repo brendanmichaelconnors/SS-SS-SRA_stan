@@ -18,7 +18,8 @@ data{
 }
 
 parameters{
-  vector<lower=0>[nRyrs] lnR; // log recruitment states
+  vector[a_max] sigma_R0_raw;
+  vector[nRyrs - (A + a_min) + 1] sigma_R_raw;
   real<lower=0> lnalpha; // log Ricker a
   real<lower=0> beta; // Ricker b
   real<lower=0> sigma_R; // process error
@@ -33,6 +34,7 @@ parameters{
 }
 
 transformed parameters{
+  vector[nRyrs] lnR; // log recruitment states
   vector<lower=0>[nyrs] N;  // run size states
   vector<lower=0>[nyrs] S;  // spawner states
   vector[nyrs] lnS;  // log spawner states
@@ -48,6 +50,15 @@ transformed parameters{
   real<lower=0> D_sum; // inverse of D_scale which governs variability of age proportion vectors across cohorts
   vector<lower=0>[A] Dir_alpha; // Dirichlet shape parameter for gamma distribution used to generate vector of age-at-maturity proportions
   matrix<lower=0, upper=1>[nyrs, A] q; // age composition by year/age classr matrix
+
+
+  // Ricker SR with AR1 process on log recruitment residuals for years with brood year spawners
+  for (i in 1:nRyrs) {
+    lnresid[i] = 0.0;
+    lnRm_1[i] = 0.0;
+    lnRm_2[i] = 0.0;
+    lnR[i] = 0.0;
+  }
 
   R = exp(lnR);
 
@@ -105,20 +116,37 @@ transformed parameters{
   for (y in (A+a_min+1):nRyrs) {
     lnRm_2[y] =  lnRm_1[y] + phi * lnresid[y-1];
   }
+
+  // First `a.max` years of recruits, for which there is no spawner link
+   for (i in 1:a_max) {
+     lnR[i] = mean_ln_R0 + sigma_R0 * sigma_R0_raw[i];
+   }
+  // lnR[1:a_max] ~ normal(mean_ln_R0, sigma_R0);
+
+  // State model
+  for (i in (A+a_min):nRyrs) {
+    lnR[i] = lnRm_2[i] + sigma_R * sigma_R_raw[(nRyrs - (A + a_min) + 1) - A+a_min];
+  }
+  // lnR[(A+a_min):nRyrs] ~ normal(lnRm_2[(A+a_min):nRyrs], sigma_R );
 }
 
 model{
   // Priors
   lnalpha ~ normal(0,3);
   beta ~ normal(0,1);
-  sigma_R ~ normal(0,2);
+  sigma_R ~ normal(0,3);
   lnresid_0 ~ normal(0,20);
   mean_ln_R0 ~ normal(0,20);
-  sigma_R0 ~ inv_gamma(1.25,0.4); // made this an informative prior based on metanalysis of other AK chinook stocks (Fleischman et al. 2013), less informative priors resulted in divergent tranistions
+  // sigma_R0 ~ inv_gamma(1.25,0.4); // made this an informative prior based on metanalysis of other AK chinook stocks (Fleischman et al. 2013), less informative priors resulted in divergent tranistions
+  sigma_R0 ~ normal(0, 3);
   prob[1] ~ beta(1,1);
   prob[2] ~ beta(1,1);
   prob[3] ~ beta(1,1);
   D_scale ~ beta(1,1);
+
+  // non-centered params:
+  sigma_R0_raw ~ std_normal();
+  sigma_R_raw ~ std_normal();
 
   // Gamma variates for each year and age class which are used to determine age at maturity proportions
   for (y in 1:nRyrs) {
@@ -127,12 +155,6 @@ model{
       target += gamma_lpdf(g[y,a]|Dir_alpha[a],1);
     }
   }
-
-  // First `a.max` years of recruits, for which there is no spawner link
-  lnR[1:a_max] ~ normal(mean_ln_R0, sigma_R0);
-
-  // State model
-  lnR[(A+a_min):nRyrs] ~ normal(lnRm_2[(A+a_min):nRyrs], sigma_R);
 
   // Observation model
   for(t in 1:nyrs){
