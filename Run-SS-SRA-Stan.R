@@ -1,7 +1,7 @@
 
 require(rstan)
-require(plyr)
-require(tidyverse)
+# require(plyr)
+# require(tidyverse)
 
 options(mc.cores = parallel::detectCores())
 rstan_options(auto_write = TRUE)
@@ -25,23 +25,25 @@ simdata <- data.frame(id = rep(1:nRyrs, each = 1),
                       z = runif(1,min=0.01, max=0.99),
                       zz = runif(1,min=0.01, max=0.99))
 
-init_fn <- function(chain_id=1) {
-  list(
-    "lnR"=abs(rnorm(nRyrs, mean=0, sd=5)),
-    "lnalpha"=abs(rnorm(1, mean=0, sd=1)),
-    "beta"=runif(1, min=0.01, max=9.99),
-    "sigma_R"=abs(rnorm(1, mean=0, sd=1)),
-    "sigma_R0"=abs(rnorm(1, mean=0, sd=1)),
-    "phi"=runif(1, min=-1, max=1),
-    "lnresid_0"=runif(1, min=-1, max=1),
-    "mean_ln_R0"=abs(rnorm(1, mean=0, sd=1)),
-    "U"=runif(nyrs, min=0.01, max=0.99),
-    "g"=daply(simdata %>% mutate(id = as.integer(id)), "id",
-              function(df) df[1,c("x", "y", "z", "zz")]) %>% as.numeric %>% matrix(ncol=4)
-  )
-}
+# init_fn <- function(chain_id=1) {
+#   list(
+#     "lnR"=abs(rnorm(nRyrs, mean=0, sd=5)),
+#     "lnalpha"=abs(rnorm(1, mean=0, sd=1)),
+#     "beta"=runif(1, min=0.01, max=9.99),
+#     "sigma_R"=abs(rnorm(1, mean=0, sd=1)),
+#     "sigma_R0"=abs(rnorm(1, mean=0, sd=1)),
+#     "phi"=runif(1, min=-1, max=1),
+#     "lnresid_0"=runif(1, min=-1, max=1),
+#     "mean_ln_R0"=abs(rnorm(1, mean=0, sd=1)),
+#     "U"=runif(nyrs, min=0.01, max=0.99),
+#     "g"=plyr::daply(simdata %>% dplyr::mutate(id = as.integer(id)), "id",
+#               function(df) df[1,c("x", "y", "z", "zz")]) %>% as.numeric %>% matrix(ncol=4)
+#   )
+# }
 # Initial List of Lists for Multiple Chains
-init_ll <- lapply(1:4, function(id) init_fn(chain_id = id))
+# init_ll <- lapply(1, function(id) init_fn(chain_id = id))
+
+# SA: you can skip init_ll and just have init_fn() without chain_id (unless you want control over different inits in different chains)
 
 # Run Stan Model ====================================================
 
