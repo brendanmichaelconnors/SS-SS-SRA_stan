@@ -61,15 +61,19 @@ stan.data <- list("nyrs" = nyrs,
 
 
 # FIT
-stan.fit <- stan(file = "SSSR_AR1-time-vary-mat.stan",
-                 model_name = "SSSR_AR1-time-vary-mat",
+
+pars <- c("sigma_R", "sigma_R0", "beta", "lnalpha", "D_scale", "prob",
+  "mean_ln_R0", "U", "lnR", "phi") # just to keep things clean; you could skip specifying 'pars'
+sm <- stan_model("SSSR_AR1-time-vary-mat.stan")
+stan.fit <- sampling(sm,
                  data = stan.data,
                  chains = 4,
-                 iter = 3000,
-                 seed = 42,
-                 init = init_ll,
-                 thin = 2,
-                 control = list(adapt_delta = 0.99, max_treedepth = 20))
+                 pars = pars,
+                 seed = 29438,
+                 iter = 800)
+
+rstan::check_hmc_diagnostics(stan.fit)
+print(stan.fit, pars = pars)
 
 # SUMMARIZE
 shinystan::launch_shinystan(stan.fit) # there is still some autocorrelation in a few parameters, try increasing iterations and thinning more
