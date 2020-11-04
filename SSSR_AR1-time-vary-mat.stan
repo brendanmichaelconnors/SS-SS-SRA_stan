@@ -99,12 +99,6 @@ transformed parameters{
     }
   }
 
-  // Ricker SR with AR1 process on log recruitment residuals for years with brood year spawners
-  for (i in 1:nRyrs) {
-    lnresid[i] = 0.0;
-    lnRm_1[i] = 0.0;
-    lnRm_2[i] = 0.0;
-  }
 
   for (y in (A+a_min):nRyrs) {
     lnRm_1[y] = lnS[y-a_max] + lnalpha - beta * S[y-a_max];
