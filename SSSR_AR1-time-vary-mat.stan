@@ -161,14 +161,14 @@ model{
 }
 
 generated quantities {
-  real<lower=0> S_max; // spawner abundance that produces maximum recruitment
-  real<lower=0> S_eq; // equilibrium spawner abundance
-  real<lower=0> S_msy; // spawner abundance that produces maximum sustainable yield
-  real<lower=0, upper=1> U_msy; // harvest rate that maximizes yield
-
-  S_max = 1/beta;
-  S_eq = lnalpha * S_max;
-  S_msy = S_eq * (0.5 - 0.07 * lnalpha);
-  U_msy = lnalpha * (0.5 - 0.07 * lnalpha);
+  // real<lower=0> S_max; // spawner abundance that produces maximum recruitment
+  // real<lower=0> S_eq; // equilibrium spawner abundance
+  // real<lower=0> S_msy; // spawner abundance that produces maximum sustainable yield
+  // real<lower=0, upper=1> U_msy; // harvest rate that maximizes yield
+  //
+  // S_max = 1/beta;
+  // S_eq = lnalpha * S_max;
+  // S_msy = S_eq * (0.5 - 0.07 * lnalpha);
+  // U_msy = lnalpha * (0.5 - 0.07 * lnalpha);
 }
 
