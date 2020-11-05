@@ -119,7 +119,7 @@ transformed parameters{
 
   // State model
   for (i in (A+a_min):nRyrs) {
-    lnR[i] = lnRm_2[i] + sigma_R * sigma_R_raw[(nRyrs - (A + a_min) + 1) - (A+a_min)];
+    lnR[i] = lnRm_2[i] + sigma_R * sigma_R_raw[i - (A + a_min) + 1];
   }
   // lnR[(A+a_min):nRyrs] ~ normal(lnRm_2[(A+a_min):nRyrs], sigma_R );
 }
